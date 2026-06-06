@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YUKI's Tiles - Perfect Mobile Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Segoe+UI:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            background: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: white;
+            touch-action: none; 
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #gameContainer {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+        #coverBackground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 400px;
+            height: 400px;
+            background-image: url('https://raw.githubusercontent.com/YMFsss/new-/main/fewwefwe.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: bottom center;
+            filter: brightness(0.7) contrast(1.05);
+            transition: opacity 0.4s ease;
+            z-index: 1;
+            pointer-events: none;
+        }
+        canvas {
+            display: block;
+            background: #1e1e1e;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #uiLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            z-index: 2;
+        }
+        #gameTitle {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 36px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 35px; 
+            margin-bottom: 25px; 
+            text-align: center;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(50, 120, 240, 0.8), 0 0 20px rgba(50, 120, 240, 0.4);
+            animation: pulseGlow 2s infinite alternate;
+        }
+        @keyframes pulseGlow {
+            from { text-shadow: 0 0 8px rgba(50, 120, 240, 0.7), 0 0 15px rgba(50, 120, 240, 0.3); }
+            to { text-shadow: 0 0 15px rgba(50, 120, 240, 1), 0 0 30px rgba(50, 120, 240, 0.6); }
+        }
+        
+        .menu-buttons-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            width: 100%;
+        }
+        .platform-row {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            width: 380px; 
+            margin-bottom: 5px;
+        }
+        .btn {
+            padding: 12px 15px;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            text-align: center;
+            border: none;
+            font-size: 14px;
+        }
+        #pcBtn { width: 175px; background: #3278f0; box-shadow: 0 4px 15px rgba(50,120,240,0.4); }
+        #mobileBtn { width: 175px; background: #e68c0a; box-shadow: 0 4px 15px rgba(230,140,10,0.4); }
+
+        .diff-btn { display: none; width: 200px; }
+        #easyBtn { background: #28a745; box-shadow: 0 4px 15px rgba(40,167,69,0.4); }
+        #normalBtn { background: #ffc107; color: #1a1a1a; box-shadow: 0 4px 15px rgba(255,193,7,0.4); }
+        #hardBtn { background: #dc3545; box-shadow: 0 4px 15px rgba(220,53,69,0.4); }
+
+        .song-btn { display: none; background: #6f42c1; box-shadow: 0 4px 15px rgba(111,66,193,0.4); width: 200px; }
+        .btn:hover { transform: scale(1.03); filter: brightness(1.1); }
+        
+        #loadingText {
+            font-size: 20px; color: #3278f0; font-weight: bold; display: none;
+            background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px;
+            text-align: center; margin-top: 100px;
+        }
+        #countdownOverlay {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif; font-size: 80px; font-weight: bold; color: #3278f0;
+            text-shadow: 0 0 20px rgba(50, 120, 240, 0.8); z-index: 10; pointer-events: none;
+        }
+        .countdown-pulse { animation: countdownZoom 0.5s ease-out forwards; }
+        @keyframes countdownZoom {
+            0% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <script src="https://unpkg.com/aubiojs@0.1.3/build/aubio.min.js"></script>
+
+    <div id="gameContainer">
+        <div id="coverBackground"></div>
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="uiLayer">
+            <div id="gameTitle">YUKI's Tiles</div>
+            <div class="menu-buttons-wrapper">
+                <div id="platformRow" class="platform-row">
+                    <button id="pcBtn" class="btn">Play on PC (D F J K)</button>
+                    <button id="mobileBtn" class="btn">Play on Mobile (Touch)</button>
+                </div>
+                <button id="easyBtn" class="btn diff-btn">Easy</button>
+                <button id="normalBtn" class="btn diff-btn">Normal</button>
+                <button id="hardBtn" class="btn diff-btn">Hard</button>
+                <button class="btn song-btn" onclick="loadGitHubTrack('女神之翼')">女神之翼</button>
+                <button class="btn song-btn" onclick="loadGitHubTrack('完璧')">完璧</button>
+                <button class="btn song-btn" onclick="loadGitHubTrack('新紮特工')">新紮特工</button>
+                <button class="btn song-btn" onclick="loadGitHubTrack('日落時')">日落時</button>
+            </div>
+            <div id="loadingText">Downloading & Analyzing...</div>
+        </div>
+        <div id="countdownOverlay"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        const coverBg = document.getElementById("coverBackground");
+        const uiLayer = document.getElementById("uiLayer");
+        const gameTitle = document.getElementById("gameTitle");
+        const platformRow = document.getElementById("platformRow");
+        const pcBtn = document.getElementById("pcBtn");
+        const mobileBtn = document.getElementById("mobileBtn");
+        
+        const easyBtn = document.getElementById("easyBtn");
+        const normalBtn = document.getElementById("normalBtn");
+        const hardBtn = document.getElementById("hardBtn");
+        const diffButtons = [easyBtn, normalBtn, hardBtn];
+        const songButtons = document.querySelectorAll(".song-btn");
+
+        const loadingText = document.getElementById("loadingText");
+        const countdownOverlay = document.getElementById("countdownOverlay");
+
+        const TRACK_KEYS = ['d', 'f', 'j', 'k'];
+        const COLUMN_WIDTH = 400 / 4;
+        const TILE_HEIGHT = 140; 
+        const HIT_LINE_Y = 600 - 120;
+
+        const TRACK_URLS = {
+            '女神之翼': 'https://raw.githubusercontent.com/YMFsss/new-/main/%E5%A5%B3%E7%A5%9E%E4%B9%8B%E7%BF%BC.mp3',
+            '完璧': 'https://raw.githubusercontent.com/YMFsss/new-/main/%E5%AE%8C%E7%92%A7.mp3',
+            '新紮特工': 'https://raw.githubusercontent.com/YMFsss/new-/main/%E6%96%B0%E7%B4%AE%E7%89%B9%E5%B7%A5.mp3',
+            '日落時': 'https://raw.githubusercontent.com/YMFsss/new-/main/%E6%97%A5%E8%90%BD%E6%99%82.mp3'
+        };
+
+        const STICKER_URLS = [
+            "https://raw.githubusercontent.com/YMFsss/new-/main/STK-20260606-WA0000.webp",
+            "https://raw.githubusercontent.com/YMFsss/new-/main/STK-20260606-WA0004.webp",
+            "https://raw.githubusercontent.com/YMFsss/new-/main/STK-20260606-WA0005.webp",
+            "https://raw.githubusercontent.com/YMFsss/new-/main/STK-20260606-WA0006.webp"
+        ];
+
+        const stickers = [];
+        let loadedStickersCount = 0;
+
+        STICKER_URLS.forEach((url) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = url;
+            img.onload = () => { loadedStickersCount++; };
+            stickers.push(img);
+        });
+
+        const DIFF_CONFIGS = {
+            EASY:   { scrollDuration: 1.6, minNoteGap: 0.36, minInterval: 0.36 },
+            NORMAL: { scrollDuration: 1.2, minNoteGap: 0.24, minInterval: 0.24 },
+            HARD:   { scrollDuration: 0.8, minNoteGap: 0.12, minInterval: 0.12 }
+        };
+
+        let currentState = "MENU"; 
+        let selectedDevice = null;
+        let selectedDifficulty = "NORMAL";
+        let scrollDuration = 1.2;
+        let speedMultiplier = 1.0; 
+        let currentRawTilesData = []; 
+
+        let activeTiles = [];
+        let score = 0;
+        let hp = 100;
+        let comboCounter = 0; 
+        
+        let feedbackText = "";
+        let feedbackColor = "";
+        let feedbackTimer = 0;
+        
+        let audioCtx = null;
+        let songStartTime = 0;
+        let aubio = null;
+
+        let currentAudioBuffer = null;
+        let audioSourceNode = null;
+        let isSongPlaying = false;
+
+        function initAudioContext() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if(audioCtx.state === "suspended") audioCtx.resume();
+        }
+
+        pcBtn.onclick = () => { initAudioContext(); selectedDevice = "PC"; showDifficultySelection(); };
+        mobileBtn.onclick = () => { initAudioContext(); selectedDevice = "MOBILE"; showDifficultySelection(); };
+
+        function showDifficultySelection() {
+            platformRow.style.display = "none"; 
+            diffButtons.forEach(btn => btn.style.display = "block");
+        }
+
+        easyBtn.onclick = () => selectDifficulty("EASY");
+        normalBtn.onclick = () => selectDifficulty("NORMAL");
+        hardBtn.onclick = () => selectDifficulty("HARD");
+
+        function selectDifficulty(diff) {
+            selectedDifficulty = diff;
+            scrollDuration = DIFF_CONFIGS[diff].scrollDuration;
+            diffButtons.forEach(btn => btn.style.display = "none");
+            songButtons.forEach(btn => btn.style.display = "block");
+        }
+
+        async function loadGitHubTrack(songName) {
+            songButtons.forEach(btn => btn.style.display = "none");
+            gameTitle.style.display = "none"; 
+            loadingText.style.display = "block";
+            currentState = "BUFFER";
+            speedMultiplier = 1.0; 
+
+            const trackUrl = TRACK_URLS[songName];
+
+            try {
+                stopAudioTrack();
+                const response = await fetch(trackUrl);
+                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                const arrayBuffer = await response.arrayBuffer();
+                currentAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+                if (typeof Aubio === "undefined") {
+                    currentRawTilesData = detectOnsetHighPrecision(currentAudioBuffer);
+                } else {
+                    try {
+                        if (!aubio) aubio = new Aubio();
+                        currentRawTilesData = await detectNotesAndGenerateTiles(currentAudioBuffer);
+                    } catch (pitchErr) {
+                        currentRawTilesData = detectOnsetHighPrecision(currentAudioBuffer);
+                    }
+                }
+                
+                // COMPLETELY UNLOAD UI LAYER ELEMENT SO TOUCH CAN PASS THROUGH TO CANVAS
+                uiLayer.style.display = "none";
+                setTimeout(startCountdownSequence, 400);
+            } catch (err) {
+                console.error("Audio broke:", err);
+                loadingText.innerText = "Error loading song.";
+                setTimeout(() => {
+                    loadingText.style.display = "none";
+                    gameTitle.style.display = "block";
+                    songButtons.forEach(btn => btn.style.display = "block");
+                    currentState = "MENU";
+                }, 2000);
+            }
+        }
+
+        function startCountdownSequence() {
+            currentState = "COUNTDOWN";
+            coverBg.style.opacity = "0"; 
+            countdownOverlay.style.display = "block";
+            let count = 3;
+            
+            function nextCount() {
+                countdownOverlay.classList.remove("countdown-pulse");
+                void countdownOverlay.offsetWidth; 
+                
+                if (count > 0) {
+                    countdownOverlay.innerText = count;
+                    countdownOverlay.style.color = "#3278f0";
+                    countdownOverlay.classList.add("countdown-pulse");
+                    count--;
+                    setTimeout(nextCount, 1000);
+                } else if (count === 0) {
+                    countdownOverlay.innerText = speedMultiplier === 1.0 ? "GO!" : speedMultiplier.toFixed(1) + "X!";
+                    countdownOverlay.style.color = "#28a745"; 
+                    countdownOverlay.classList.add("countdown-pulse");
+                    count--;
+                    setTimeout(nextCount, 800);
+                } else {
+                    countdownOverlay.style.display = "none";
+                    startGame(); 
+                }
+            }
+            nextCount();
+        }
+
+        async function detectNotesAndGenerateTiles(audioBuffer) {
+            const sampleRate = audioBuffer.sampleRate;
+            const channelData = audioBuffer.getChannelData(0);
+            const bufferSize = 512; 
+            const hopSize = 256; 
+            const notes = [];
+            let lastNoteTime = 0;
+            const minNoteGap = DIFF_CONFIGS[selectedDifficulty].minNoteGap;
+
+            const pitchDetector = new aubio.Pitch("default", bufferSize, hopSize, sampleRate);
+            pitchDetector.setUnit("hz");
+            pitchDetector.setSilence(-45); 
+            pitchDetector.setThreshold(0.5); 
+
+            const maxIter = channelData.length - bufferSize;
+            for (let i = 0; i <= maxIter; i += hopSize) {
+                const chunk = channelData.slice(i, i + bufferSize);
+                let pitch;
+                try { pitch = pitchDetector.do(chunk); } catch { continue; }
+                const currentTime = i / sampleRate;
+                
+                if (pitch > 130 && pitch < 900 && currentTime - lastNoteTime > minNoteGap) {
+                    const column = mapPitchToColumn(pitch);
+                    notes.push({ time: currentTime, col: column });
+                    lastNoteTime = currentTime;
+                }
+            }
+            pitchDetector.destroy();
+            return notes;
+        }
+
+        function detectOnsetHighPrecision(audioBuffer){
+            const channelData = audioBuffer.getChannelData(0);
+            const sampleRate = audioBuffer.sampleRate;
+            const blockSize = 1024; 
+            const times = [];
+            let lastPeakTime = 0;
+            const minInterval = DIFF_CONFIGS[selectedDifficulty].minInterval;
+            
+            for (let i = 0; i < channelData.length; i += blockSize) {
+                const block = channelData.slice(i, i + blockSize);
+                let sum = 0;
+                for (let j = 0; j < block.length; j++) sum += block[j] * block[j];
+                const rms = Math.sqrt(sum / block.length);
+                const currentTime = i / sampleRate;
+                
+                if (rms > 0.04 && (currentTime - lastPeakTime) > minInterval) {
+                    times.push(currentTime);
+                    lastPeakTime = currentTime;
+                }
+            }
+            return times.map(time => ({
+                time: time,
+                col: Math.floor(Math.random() * 4)
+            }));
+        }
+
+        function mapPitchToColumn(pitch) {
+            if (pitch < 260) return 0;
+            if (pitch < 420) return 1;
+            if (pitch < 600) return 2;
+            return 3;
+        }
+
+        function startGame() {
+            hp = 100;
+            score = 0;
+            comboCounter = 0; 
+            feedbackTimer = 0;
+            currentState = "PLAYING";
+            
+            coverBg.style.opacity = "0";
+            uiLayer.style.display = "none"; // Hard lock UI interface visibility
+
+            const activeScrollDuration = DIFF_CONFIGS[selectedDifficulty].scrollDuration / speedMultiplier;
+
+            activeTiles = currentRawTilesData.map(node => {
+                const scaledTarget = node.time / speedMultiplier;
+                return {
+                    spawnTime: scaledTarget - activeScrollDuration,
+                    targetTime: scaledTarget,
+                    col: node.col,
+                    hit: false,
+                    missed: false
+                };
+            });
+            
+            audioSourceNode = audioCtx.createBufferSource();
+            audioSourceNode.buffer = currentAudioBuffer;
+            audioSourceNode.playbackRate.value = speedMultiplier;
+            audioSourceNode.connect(audioCtx.destination);
+            
+            audioSourceNode.onended = () => {
+                if (currentState === "PLAYING") {
+                    if (hp > 0) {
+                        handleSongCompletion();
+                    } else {
+                        endGameSequence();
+                    }
+                }
+            };
+            
+            audioSourceNode.start(0);
+            songStartTime = audioCtx.currentTime;
+            isSongPlaying = true;
+        }
+
+        function handleSongCompletion() {
+            currentState = "CONGRATS";
+            stopAudioTrack();
+            speedMultiplier *= 1.3;
+            setTimeout(() => { startCountdownSequence(); }, 2500);
+        }
+
+        function stopAudioTrack() {
+            if (audioSourceNode && isSongPlaying) {
+                try { audioSourceNode.stop(); } catch(e) {}
+                audioSourceNode.disconnect();
+            }
+            isSongPlaying = false;
+        }
+
+        function endGameSequence() {
+            currentState = "MENU";
+            stopAudioTrack();
+            
+            // Bring UI framework back safely
+            coverBg.style.opacity = "1";
+            uiLayer.style.display = "flex";
+            gameTitle.style.display = "block";
+            platformRow.style.display = "flex"; 
+            
+            selectedDevice = null;
+        }
+
+        function playHitSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function processHitRegister(trackIndex) {
+            if (currentState !== "PLAYING") return;
+            
+            const currentAudioTime = audioCtx.currentTime - songStartTime;
+            let handled = false;
+            
+            const toleranceWindow = 0.15 / speedMultiplier; 
+            const perfectWindow = 0.06 / speedMultiplier;
+
+            for (let t of activeTiles) {
+                if (t.col === trackIndex && !t.hit && !t.missed) {
+                    const timeDiff = Math.abs(currentAudioTime - t.targetTime);
+                    if (timeDiff < toleranceWindow) { 
+                        t.hit = true;
+                        handled = true;
+                        playHitSound();
+                        comboCounter++;
+                        
+                        if (timeDiff < perfectWindow) {
+                            score += Math.round(150 * speedMultiplier); 
+                            feedbackText = "PERFECT!";
+                            feedbackColor = "#1dd1a1";
+                        } else {
+                            score += Math.round(75 * speedMultiplier);
+                            feedbackText = "GREAT";
+                            feedbackColor = "#48dbfb";
+                        }
+                        
+                        if (comboCounter >= 2) {
+                            hp = Math.min(100, hp + 5); 
+                            comboCounter = 0; 
+                            feedbackText += " (+HP)"; 
+                        }
+                        feedbackTimer = 30;
+                        break;
+                    }
+                }
+            }
+            if (!handled) {
+                comboCounter = 0; 
+                hp -= 5;
+                feedbackText = "MISS";
+                feedbackColor = "#dc3545";
+                feedbackTimer = 30;
+            }
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (currentState !== "PLAYING" || selectedDevice !== "PC") return;
+            const idx = TRACK_KEYS.indexOf(e.key.toLowerCase());
+            if (idx !== -1) processHitRegister(idx);
+        });
+
+        // 100% RELIABLE COORDINATE PERCENTAGE ENGINE FROM REFERENCE SCRIPT
+        canvas.addEventListener("touchstart", (e) => {
+            if (currentState !== "PLAYING" || selectedDevice !== "MOBILE") return;
+            e.preventDefault(); 
+            
+            const rect = canvas.getBoundingClientRect();
+
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                
+                // Exact structural percentage lookup calculation from working variant
+                const relativeX = ((touch.clientX - rect.left) / rect.width) * canvas.width;
+                const trackIdx = Math.floor(relativeX / COLUMN_WIDTH);
+                
+                if (trackIdx >= 0 && trackIdx < 4) {
+                    processHitRegister(trackIdx);
+                }
+            }
+        }, { passive: false });
+
+        function update() {
+            ctx.fillStyle = "#1e1e1e";
+            ctx.fillRect(0, 0, 400, 600);
+            
+            ctx.strokeStyle = "#333333";
+            ctx.lineWidth = 2;
+            for (let i = 1; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * COLUMN_WIDTH, 0);
+                ctx.lineTo(i * COLUMN_WIDTH, 600);
+                ctx.stroke();
+            }
+            
+            ctx.strokeStyle = "rgba(50, 120, 240, 0.8)";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, HIT_LINE_Y);
+            ctx.lineTo(400, HIT_LINE_Y);
+            ctx.stroke();
+
+            if (currentState === "CONGRATS") {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, 400, 600);
+                ctx.fillStyle = "#ffc107";
+                ctx.font = "bold 28px 'Orbitron', Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("CONGRATULATIONS!", 200, 260);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "18px Arial";
+                ctx.fillText("Song Completed!", 200, 310);
+                ctx.fillStyle = "#3278f0";
+                ctx.font = "bold 22px Arial";
+                ctx.fillText(`Speeding up to ${(speedMultiplier * 1.3).toFixed(1)}X...`, 200, 360);
+            }
+
+            if (currentState === "PLAYING") {
+                const currentAudioTime = audioCtx.currentTime - songStartTime;
+                const tileColors = ["#ff6b6b", "#feca57", "#48dbfb", "#1dd1a1"];
+                const activeScrollDuration = DIFF_CONFIGS[selectedDifficulty].scrollDuration / speedMultiplier;
+
+                for (let t of activeTiles) {
+                    if (currentAudioTime >= t.spawnTime) {
+                        const progress = (currentAudioTime - t.spawnTime) / activeScrollDuration;
+                        const currentY = progress * HIT_LINE_Y - TILE_HEIGHT;
+                        
+                        if (currentAudioTime > t.targetTime + (0.15 / speedMultiplier) && !t.hit && !t.missed) {
+                            t.missed = true;
+                            comboCounter = 0; 
+                            hp -= 8;
+                            feedbackText = "MISS";
+                            feedbackColor = "#dc3545";
+                            feedbackTimer = 30;
+                        }
+                        
+                        if (!t.hit && currentY < 600) {
+                            if (loadedStickersCount === 4) {
+                                const activeSticker = stickers[t.col];
+                                if (t.missed) {
+                                    ctx.save();
+                                    ctx.globalAlpha = 0.3;
+                                    ctx.drawImage(activeSticker, t.col * COLUMN_WIDTH, currentY, COLUMN_WIDTH, TILE_HEIGHT);
+                                    ctx.restore();
+                                } else {
+                                    ctx.drawImage(activeSticker, t.col * COLUMN_WIDTH, currentY, COLUMN_WIDTH, TILE_HEIGHT);
+                                }
+                            } else {
+                                ctx.fillStyle = t.missed ? "#442222" : tileColors[t.col];
+                                ctx.fillRect(t.col * COLUMN_WIDTH, currentY, COLUMN_WIDTH, TILE_HEIGHT);
+                            }
+                        }
+                    }
+                }
+                
+                ctx.fillStyle = "rgba(0,0,0,0.4)";
+                ctx.fillRect(0, 0, 400, 50);
+                ctx.fillStyle = hp < 30 ? "#dc3545" : "#28a745";
+                ctx.fillRect(20, 18, Math.max(0, hp) * 1.5, 14);
+                
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 16px Arial";
+                ctx.textAlign = "left";
+                ctx.fillText("SCORE: " + score, 190, 32);
+                
+                ctx.fillStyle = "#ffc107";
+                ctx.textAlign = "right";
+                ctx.fillText(`SPEED: ${speedMultiplier.toFixed(1)}X`, 380, 32);
+
+                if (feedbackTimer > 0) {
+                    ctx.fillStyle = feedbackColor;
+                    ctx.font = "bold 28px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText(feedbackText, 200, 300);
+                    feedbackTimer--;
+                }
+                if (hp <= 0) {
+                    endGameSequence();
+                }
+            }
+            requestAnimationFrame(update);
+        }
+        update();
+    </script>
+</body>
+</html>
